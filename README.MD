@@ -1,40 +1,46 @@
 🔐 Smart Hash Tool
+A lightweight DevSecOps tool for:
 
+🔎 Automatic hash detection (MD5, SHA1, SHA256)
 
+📦 Base64 / Hex encoding detection
 
+🚀 Local dictionary attacks
 
+🐳 Docker-ready execution
 
+📁 Project Structure
+text
+smart-hash-tool/
+│
+├── smart_hash_cracker.py
+├── wordlist.txt
+├── Dockerfile
+└── README.md
+⚙️ Features
+✅ Automatic Detection
+The script automatically identifies:
 
+MD5 (32-character hex)
 
+SHA1 (40-character hex)
 
-Smart Hash Tool is a lightweight DevSecOps security utility designed to analyze encoded values and weak hashes quickly.
+SHA256 (64-character hex)
 
-It helps security engineers detect hash types, encodings, and weak credentials during security audits, labs, or controlled environments.
+Base64
 
-🚀 Features
-🔎 Automatic Detection
+Hex encoded strings
 
-The tool automatically detects common hash types and encodings:
-
-Type	Description
-MD5	32 hex characters
-SHA1	40 hex characters
-SHA256	64 hex characters
-Base64	Encoded values
-Hex	Hexadecimal encoded strings
 🚀 Dictionary Attack
+Test a hash against a local wordlist.
 
-The tool can perform local dictionary attacks against weak hashes.
+⚠️ Works only for:
 
-Supported algorithms:
+Unsalted hashes
 
-MD5
+MD5 / SHA1 / SHA256
 
-SHA1
-
-SHA256
-
-⚠️ Not supported:
+Does NOT support:
 
 bcrypt
 
@@ -42,45 +48,42 @@ argon2
 
 scrypt
 
-salted hashes
+Salted hashes
 
-📁 Project Structure
-smart-hash-tool/
-│
-├── smart_hash_cracker.py
-├── wordlist.txt
-├── Dockerfile
-└── README.md
 🐳 Docker Usage
-
-The tool is fully containerized and runs securely inside Docker.
-
-🔨 Build the image
+🔨 Build
+bash
 docker build -t smart-hash-tool .
-🔎 Analyze a hash
-docker run --rm smart-hash-tool \
--s 5baa61e4c9b93f3f0682250b6cf8331b7ee68fd8
-🚀 Run dictionary attack
+🔎 Basic Analysis
+bash
+docker run --rm smart-hash-tool -s 5baa61e4c9b93f3f0682250b6cf8331b7ee68fd8
+🚀 Dictionary Attack
+bash
 docker run --rm \
--v $(pwd)/wordlist.txt:/app/wordlist.txt \
-smart-hash-tool \
--s 5baa61e4c9b93f3f0682250b6cf8331b7ee68fd8 \
--w wordlist.txt
+  -v $(pwd)/wordlist.txt:/app/wordlist.txt \
+  smart-hash-tool \
+  -s 5baa61e4c9b93f3f0682250b6cf8331b7ee68fd8 \
+  -w wordlist.txt
 💻 Local Usage (without Docker)
-
-Run the script directly:
-
+bash
 python3 smart_hash_cracker.py -s <hash>
+With wordlist:
 
-With a wordlist:
-
+bash
 python3 smart_hash_cracker.py -s <hash> -w wordlist.txt
-☁️ Kubernetes Example
+🔐 Security
+Docker image based on python:3.11-slim
 
-The tool can also run as a security analysis job in Kubernetes.
+Runs as non-root user
 
-Example:
+No external dependencies
 
+CI/CD friendly
+
+Kubernetes Job compatible
+
+📦 Kubernetes Job Example
+yaml
 apiVersion: batch/v1
 kind: Job
 metadata:
@@ -93,83 +96,31 @@ spec:
         image: smart-hash-tool:latest
         args: ["-s", "5baa61e4c9b93f3f0682250b6cf8331b7ee68fd8"]
       restartPolicy: Never
-
-Compatible with Kubernetes and Docker environments.
-
-🔐 Security Design
-
-The container image follows basic security best practices:
-
-Based on python:3.11-slim
-
-Runs as non-root user
-
-Minimal attack surface
-
-No external dependencies
-
-Compatible with CI/CD pipelines
-
-Suitable for Kubernetes Jobs
-
 🎯 Use Cases
+Internal security audits
 
-Smart Hash Tool can be useful for:
+Log dump analysis
 
-🔐 DevSecOps security audits
+CTF challenges
 
-📜 Log dump analysis
+Basic pentesting
 
-🧪 DevSecOps labs
-
-🏴 CTF challenges
-
-🔎 Basic pentesting scenarios
-
-☁️ Cloud security testing
+DevSecOps labs
 
 ⚠️ Disclaimer
+This tool is intended for educational purposes and authorized internal audits only.
 
-This tool is intended for educational purposes and authorized security testing only.
+Unauthorized use is illegal.
 
-Unauthorized use against systems without explicit permission may be illegal.
+🚀 Roadmap / Future Improvements
+Multi-threading support
 
-The author assumes no responsibility for misuse.
-
-🛠 Possible Future Improvements
-
-Planned improvements could include:
-
-Multi-threaded cracking engine
-
-REST API with Flask
+Flask API
 
 Prometheus metrics
 
-CI/CD security pipeline integration
+GitLab CI integration
 
-Automated log scanning
+Automatic log scanning
 
-Kubernetes security scanning
-
-👨‍💻 Author
-
-DevSecOps / Cloud Security enthusiast focused on:
-
-Cloud infrastructure security
-
-Kubernetes security
-
-DevSecOps automation
-
-⭐ Support the Project
-
-If you find this project useful:
-
-⭐ Star the repository on GitHub
-
-Share it with your DevOps or security community
-
-Contribute improvements
-
-🔥 A practical project for DevOps / DevSecOps portfolios and cloud security learning.
+Kubernetes deployment automation
