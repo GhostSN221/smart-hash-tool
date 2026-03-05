@@ -1,116 +1,86 @@
-# 🔐 Smart Hash Tool
+🔐 Smart Hash Tool
 
-Mini outil DevSecOps permettant :
 
-* 🔎 Détection automatique de hash (MD5, SHA1, SHA256)
-* 📦 Détection encodage Base64 / Hex
-* 🚀 Attaque dictionnaire locale
-* 🐳 Exécution via Docker
 
----
 
-## 📁 Structure du projet
 
-```
+
+
+
+Smart Hash Tool is a lightweight DevSecOps security utility designed to analyze encoded values and weak hashes quickly.
+
+It helps security engineers detect hash types, encodings, and weak credentials during security audits, labs, or controlled environments.
+
+🚀 Features
+🔎 Automatic Detection
+
+The tool automatically detects common hash types and encodings:
+
+Type	Description
+MD5	32 hex characters
+SHA1	40 hex characters
+SHA256	64 hex characters
+Base64	Encoded values
+Hex	Hexadecimal encoded strings
+🚀 Dictionary Attack
+
+The tool can perform local dictionary attacks against weak hashes.
+
+Supported algorithms:
+
+MD5
+
+SHA1
+
+SHA256
+
+⚠️ Not supported:
+
+bcrypt
+
+argon2
+
+scrypt
+
+salted hashes
+
+📁 Project Structure
 smart-hash-tool/
 │
 ├── smart_hash_cracker.py
 ├── wordlist.txt
 ├── Dockerfile
 └── README.md
-```
+🐳 Docker Usage
 
----
+The tool is fully containerized and runs securely inside Docker.
 
-## ⚙️ Fonctionnalités
-
-### ✅ Détection automatique
-
-Le script détecte automatiquement :
-
-* MD5 (32 caractères hex)
-* SHA1 (40 caractères hex)
-* SHA256 (64 caractères hex)
-* Base64
-* Hex encodé
-
----
-
-### 🚀 Attaque dictionnaire
-
-Permet de tester un hash contre une wordlist locale.
-
-⚠️ Fonctionne uniquement pour :
-
-* Hash non salé
-* MD5 / SHA1 / SHA256
-
-Ne supporte PAS :
-
-* bcrypt
-* argon2
-* scrypt
-* hash salé
-
----
-
-# 🐳 Utilisation avec Docker
-
-## 🔨 Build
-
-```bash
+🔨 Build the image
 docker build -t smart-hash-tool .
-```
-
----
-
-## 🔎 Analyse simple
-
-```bash
-docker run --rm smart-hash-tool -s 5baa61e4c9b93f3f0682250b6cf8331b7ee68fd8
-```
-
----
-
-## 🚀 Attaque dictionnaire
-
-```bash
+🔎 Analyze a hash
+docker run --rm smart-hash-tool \
+-s 5baa61e4c9b93f3f0682250b6cf8331b7ee68fd8
+🚀 Run dictionary attack
 docker run --rm \
-  -v $(pwd)/wordlist.txt:/app/wordlist.txt \
-  smart-hash-tool \
-  -s 5baa61e4c9b93f3f0682250b6cf8331b7ee68fd8 \
-  -w wordlist.txt
-```
+-v $(pwd)/wordlist.txt:/app/wordlist.txt \
+smart-hash-tool \
+-s 5baa61e4c9b93f3f0682250b6cf8331b7ee68fd8 \
+-w wordlist.txt
+💻 Local Usage (without Docker)
 
----
+Run the script directly:
 
-# 💻 Utilisation locale (sans Docker)
-
-```bash
 python3 smart_hash_cracker.py -s <hash>
-```
 
-Avec wordlist :
+With a wordlist:
 
-```bash
 python3 smart_hash_cracker.py -s <hash> -w wordlist.txt
-```
+☁️ Kubernetes Example
 
----
+The tool can also run as a security analysis job in Kubernetes.
 
-# 🔐 Sécurité
+Example:
 
-* Image Docker basée sur python:3.11-slim
-* Exécution non-root
-* Aucune dépendance externe
-* Compatible CI/CD
-* Compatible Kubernetes Job
-
----
-
-# 📦 Exemple Kubernetes Job
-
-```yaml
 apiVersion: batch/v1
 kind: Job
 metadata:
@@ -123,37 +93,83 @@ spec:
         image: smart-hash-tool:latest
         args: ["-s", "5baa61e4c9b93f3f0682250b6cf8331b7ee68fd8"]
       restartPolicy: Never
-```
 
----
+Compatible with Kubernetes and Docker environments.
 
-# 🎯 Cas d’usage
+🔐 Security Design
 
-* Audit sécurité interne
-* Analyse dump logs
-* CTF
-* Pentest basique
-* LAB DevSecOps
+The container image follows basic security best practices:
 
----
+Based on python:3.11-slim
 
-# ⚠️ Disclaimer
+Runs as non-root user
 
-Cet outil est destiné à un usage éducatif et à l’audit interne autorisé uniquement.
+Minimal attack surface
 
-Toute utilisation non autorisée est illégale.
+No external dependencies
 
----
+Compatible with CI/CD pipelines
 
-# 🚀 Évolutions possibles
+Suitable for Kubernetes Jobs
 
-* Multi-threading
-* API Flask
-* Metrics Prometheus
-* Intégration GitLab CI
-* Scan automatique logs
-* Déploiement Kubernetes
+🎯 Use Cases
 
----
+Smart Hash Tool can be useful for:
 
-🔥 Projet idéal pour portfolio DevSecOps / Cloud
+🔐 DevSecOps security audits
+
+📜 Log dump analysis
+
+🧪 DevSecOps labs
+
+🏴 CTF challenges
+
+🔎 Basic pentesting scenarios
+
+☁️ Cloud security testing
+
+⚠️ Disclaimer
+
+This tool is intended for educational purposes and authorized security testing only.
+
+Unauthorized use against systems without explicit permission may be illegal.
+
+The author assumes no responsibility for misuse.
+
+🛠 Possible Future Improvements
+
+Planned improvements could include:
+
+Multi-threaded cracking engine
+
+REST API with Flask
+
+Prometheus metrics
+
+CI/CD security pipeline integration
+
+Automated log scanning
+
+Kubernetes security scanning
+
+👨‍💻 Author
+
+DevSecOps / Cloud Security enthusiast focused on:
+
+Cloud infrastructure security
+
+Kubernetes security
+
+DevSecOps automation
+
+⭐ Support the Project
+
+If you find this project useful:
+
+⭐ Star the repository on GitHub
+
+Share it with your DevOps or security community
+
+Contribute improvements
+
+🔥 A practical project for DevOps / DevSecOps portfolios and cloud security learning.
