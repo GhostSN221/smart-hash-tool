@@ -18,104 +18,115 @@ The usual workflow: open Google, check the length, guess the type, pick the righ
 
 Drop the string in. The tool does the rest:
 
-1. **Automatically identifies** what it is — MD5 / SHA1 / SHA256 hash, Base64 encoding, Hex encoding
-2. **Launches a dictionary attack** if it's a hash, using the wordlist you provide
+1. **Automatically identifies** what it is — 10+ hash types, Base64, Hex
+2. **Launches a parallel dictionary attack** across all CPU cores
 3. **Decodes directly** if it's Base64 or Hex
+4. **Generates hashes** from any plaintext
+5. **Processes files** — hundreds of hashes in one shot
 
 ```bash
 python3 smart_hash_cracker.py -s 5baa61e4c9b93f3f0682250b6cf8331b7ee68fd8 -w wordlist.txt
-# SHA1 detected → password found: "password"
+# SHA1 detected → CRACKED [SHA1] -> password
 ```
 
 > You throw an unknown string at it, it tells you what it is and tries to crack it — zero configuration, zero prior knowledge required.
 
 ---
 
-A lightweight DevSecOps tool for:
+## Features
 
-🔎 Automatic hash detection (MD5, SHA1, SHA256)
+| Feature | Details |
+|---|---|
+| Hash detection | MD5, NTLM, SHA1, RIPEMD160, SHA224, SHA256, SHA3-256, SHA384, SHA512, SHA3-512, MySQL323, CRC32 |
+| Encoding detection | Base64, Hex |
+| Dictionary attack | Multi-process (all CPU cores), progress bar, real-time speed |
+| Hash generation | Compute all hash types from a plaintext in one command |
+| Batch mode | Process a file of hashes line by line |
+| JSON output | Machine-readable output for CI/CD pipelines |
 
-📦 Base64 / Hex encoding detection
+## Installation
 
-🚀 Local dictionary attacks
+```bash
+git clone https://github.com/Mouhmedsn02/smart-hash-tool
+cd smart-hash-tool
+pip install -r requirements.txt
+```
 
-🐳 Docker-ready execution
+## Usage
 
-📁 Project Structure
-text
-smart-hash-tool/
-│
-├── smart_hash_cracker.py
-├── wordlist.txt
-├── Dockerfile
-└── README.md
-⚙️ Features
-✅ Automatic Detection
-The script automatically identifies:
+### Analyze a single string
 
-MD5 (32-character hex)
+```bash
+python3 smart_hash_cracker.py -s 5baa61e4c9b93f3f0682250b6cf8331b7ee68fd8
+python3 smart_hash_cracker.py -s 5baa61e4c9b93f3f0682250b6cf8331b7ee68fd8 -w wordlist.txt
+python3 smart_hash_cracker.py -s aGVsbG8=
+python3 smart_hash_cracker.py -s 68656c6c6f
+```
 
-SHA1 (40-character hex)
+### Generate hashes from plaintext
 
-SHA256 (64-character hex)
+```bash
+python3 smart_hash_cracker.py --generate "password123"
+```
 
-Base64
+Output:
+```
+Hashes for: password123
 
-Hex encoded strings
+  MD5          482c811da5d5b4bc6d497ffa98491e38
+  SHA1         cbfdac6008f9cab4083784cbd1874f76618d2a97
+  SHA256       ef92b778bafe771e89245b89ecbc08a44a4e166c06659911881f383d4473e94f
+  SHA512       bed4efa1d4fdbd954bd3705d6a2a78270ec9a52e...
+  ...
+```
 
-🚀 Dictionary Attack
-Test a hash against a local wordlist.
+### Batch mode — process multiple hashes
 
-⚠️ Works only for:
+```bash
+python3 smart_hash_cracker.py -f hashes.txt -w rockyou.txt
+```
 
-Unsalted hashes
+### JSON output (for pipelines)
 
-MD5 / SHA1 / SHA256
+```bash
+python3 smart_hash_cracker.py -s 5baa61e4c9b93f3f0682250b6cf8331b7ee68fd8 -w wordlist.txt --json
+```
 
-Does NOT support:
+```json
+{
+  "input": "5baa61e4c9b93f3f0682250b6cf8331b7ee68fd8",
+  "type": "hash",
+  "candidates": ["SHA1", "RIPEMD160"],
+  "decoded": null,
+  "crack_result": {
+    "found": "password",
+    "hash_type": "SHA1"
+  }
+}
+```
 
-bcrypt
+## Docker
 
-argon2
-
-scrypt
-
-Salted hashes
-
-🐳 Docker Usage
-🔨 Build
-bash
+```bash
 docker build -t smart-hash-tool .
-🔎 Basic Analysis
-bash
+
+# Analyze
 docker run --rm smart-hash-tool -s 5baa61e4c9b93f3f0682250b6cf8331b7ee68fd8
-🚀 Dictionary Attack
-bash
+
+# Dictionary attack
 docker run --rm \
   -v $(pwd)/wordlist.txt:/app/wordlist.txt \
   smart-hash-tool \
   -s 5baa61e4c9b93f3f0682250b6cf8331b7ee68fd8 \
   -w wordlist.txt
-💻 Local Usage (without Docker)
-bash
-python3 smart_hash_cracker.py -s <hash>
-With wordlist:
 
-bash
-python3 smart_hash_cracker.py -s <hash> -w wordlist.txt
-🔐 Security
-Docker image based on python:3.11-slim
+# Generate
+docker run --rm smart-hash-tool --generate "password123"
+```
 
-Runs as non-root user
+## Kubernetes Job Example
 
-No external dependencies
-
-CI/CD friendly
-
-Kubernetes Job compatible
-
-📦 Kubernetes Job Example
-yaml
+```yaml
 apiVersion: batch/v1
 kind: Job
 metadata:
@@ -126,33 +137,43 @@ spec:
       containers:
       - name: hash-tool
         image: smart-hash-tool:latest
-        args: ["-s", "5baa61e4c9b93f3f0682250b6cf8331b7ee68fd8"]
+        args: ["-s", "5baa61e4c9b93f3f0682250b6cf8331b7ee68fd8", "-w", "wordlist.txt", "--json"]
       restartPolicy: Never
-🎯 Use Cases
-Internal security audits
+```
 
-Log dump analysis
+## Project Structure
 
-CTF challenges
+```
+smart-hash-tool/
+├── smart_hash_cracker.py
+├── wordlist.txt
+├── requirements.txt
+├── Dockerfile
+└── README.md
+```
 
-Basic pentesting
+## Use Cases
 
-DevSecOps labs
+- Internal security audits
+- Log dump analysis
+- CTF challenges
+- Pentesting engagements
+- DevSecOps pipelines
 
-⚠️ Disclaimer
-This tool is intended for educational purposes and authorized internal audits only.
+## Limitations
 
-Unauthorized use is illegal.
+- Does not support salted hashes (bcrypt, argon2, scrypt)
+- Dictionary attack only — no brute-force or rule engine (yet)
 
-🚀 Roadmap / Future Improvements
-Multi-threading support
+## Roadmap
 
-Flask API
+- [ ] REST API (FastAPI)
+- [ ] Rule-based mutations engine (l33tspeak, common suffixes)
+- [ ] Online lookup (Have I Been Pwned)
+- [ ] Prometheus metrics
+- [ ] GitLab CI integration
+- [ ] Kubernetes deployment automation
 
-Prometheus metrics
+## Disclaimer
 
-GitLab CI integration
-
-Automatic log scanning
-
-Kubernetes deployment automation
+For educational purposes and authorized security audits only. Unauthorized use is illegal.

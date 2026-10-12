@@ -6,10 +6,12 @@ RUN useradd -m appuser
 
 WORKDIR /app
 
-# Copier le script
-COPY smart_hash_cracker.py .
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
 
-# Droits propres
+COPY smart_hash_cracker.py .
+COPY wordlist.txt .
+
 RUN chown -R appuser:appuser /app
 
 USER appuser
