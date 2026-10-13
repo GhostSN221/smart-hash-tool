@@ -1,0 +1,10 @@
+services:
+  api:
+    build: .
+    entrypoint: uvicorn
+    command: api:app --host 0.0.0.0 --port 8000
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./wordlist.txt:/app/wordlist.txt:ro
+    restart: unless-stopped
