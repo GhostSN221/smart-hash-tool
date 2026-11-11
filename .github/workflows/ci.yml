@@ -29,15 +29,23 @@ jobs:
       - name: Install dependencies
         run: pip install -r requirements-dev.txt
       - name: Syntax check
-        run: python -m compileall -q smart_hash_cracker.py api.py tests bench
+        run: python -m compileall -q smart_hash_cracker.py api.py credential_scanner.py tests bench
       - name: Lint
-        run: ruff check smart_hash_cracker.py api.py tests bench
+        run: ruff check smart_hash_cracker.py api.py credential_scanner.py tests bench
       - name: Tests and coverage
         run: |
           pytest -q \
             --cov=smart_hash_cracker \
             --cov=api \
+            --cov=credential_scanner \
             --cov-report=term-missing
+      - name: Self-scan
+        run: |
+          python credential_scanner.py \
+            --path . \
+            --config .credential-scan.json \
+            --format json \
+            --fail-on error
 
   docker:
     runs-on: ubuntu-latest
@@ -49,6 +57,10 @@ jobs:
         run: |
           docker run --rm smart-hash-tool:ci --generate password --json \
             | python3 -c 'import json,sys; d=json.load(sys.stdin); assert d["hashes"]["NTLM"] == "8846f7eaee8fb117ad06bdd830b7586c"'
+      - name: Scanner smoke test
+        run: |
+          docker run --rm --entrypoint python3 smart-hash-tool:ci \
+            credential_scanner.py --file /app/wordlist.txt --format json --fail-on none
       - name: API smoke test
         run: |
           docker run -d --name smart-hash-api -p 8001:8000 \
@@ -85,6 +97,8 @@ jobs:
             -H 'Content-Type: application/json' \
             -d '{"plaintext":"password"}' \
             | python3 -c 'import json,sys; d=json.load(sys.stdin); assert d["hashes"]["CRC32"] == "35c246d5"'
+      - name: Scan the repository with the compose profile
+        run: docker compose --profile scanner run --rm scanner
       - name: Stop compose stack
         if: always()
         run: docker compose down -v
