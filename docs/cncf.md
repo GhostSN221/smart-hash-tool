@@ -14,7 +14,7 @@ Sandbox application. It is based on the public `cncf/sandbox` requirements.
 | Governance and decision process | ✅ [GOVERNANCE.md](../GOVERNANCE.md) |
 | Reusable project (not a reference architecture) | ✅ credential scanner + CLI/API |
 | Public roadmap | ✅ [ROADMAP.md](../ROADMAP.md) |
-| Tests and CI | ✅ 103 tests, 87% coverage, GitHub Actions |
+| Tests and CI | ✅ 105 tests, 87% coverage, GitHub Actions |
 | Real adopters | ❌ [ADOPTERS.md](../ADOPTERS.md) is a template |
 | Maintainers from multiple organizations | ❌ one maintainer today |
 | Release process, signed artifacts, SBOM | ❌ roadmap |
