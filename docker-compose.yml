@@ -20,3 +20,20 @@ services:
       timeout: 3s
       retries: 5
     restart: unless-stopped
+
+  scanner:
+    build: .
+    profiles: ["scanner"]
+    entrypoint: python3
+    command:
+      - credential_scanner.py
+      - --path
+      - /scan
+      - --config
+      - /scan/.credential-scan.json
+      - --format
+      - json
+      - --fail-on
+      - error
+    volumes:
+      - ./:/scan:ro

@@ -7,6 +7,8 @@ __pycache__
 .ruff_cache
 .coverage
 htmlcov
+*.sarif
+credential-scan.sarif
 tests
 bench
 docs

@@ -1,8 +1,9 @@
 # Smart Hash Tool
 
-**Drop in an unknown hash: identify it, crack it, check breaches, or generate all supported hashes — from one CLI or REST API.**
+**Cloud-native credential hygiene scanner: find plaintext secrets, weak hashes and reused passwords in repositories, CI logs and Kubernetes — plus a 12-format hash engine and REST API.**
 
 [![CI](https://github.com/GhostSN221/smart-hash-tool/actions/workflows/ci.yml/badge.svg)](https://github.com/GhostSN221/smart-hash-tool/actions/workflows/ci.yml)
+[![Credential Hygiene](https://github.com/GhostSN221/smart-hash-tool/actions/workflows/self-scan.yml/badge.svg)](https://github.com/GhostSN221/smart-hash-tool/actions/workflows/self-scan.yml)
 
 During an audit, a CTF, or while reviewing a leaked dump, you usually start with a string like:
 
@@ -36,7 +37,70 @@ Smart Hash Tool removes that setup:
 | Generation | All 12 supported formats from one plaintext |
 | Batch mode | One hash per line, JSON output |
 | REST API | FastAPI with `/docs`, optional API key, wordlist sandbox |
-| CI | Tests, lint, Docker build, API smoke and compose smoke |
+| Repository scan | Plaintext credentials and weak hashes in files and CI logs |
+| Kubernetes scan | Secrets and ConfigMaps in a namespace, with redaction |
+| Reuse detection | Duplicate hashes and, with `--crack`, reused plaintext passwords |
+| CI integration | SARIF output, GitHub Action, Code Scanning upload |
+| CI | Tests, lint, Docker build, API/compose smoke and self-scan |
+
+---
+
+## Credential scanner
+
+The scanner is the cloud-native front door of the project. It looks for the
+things that usually slip through code review:
+
+| Finding | Example | Severity |
+|---|---|---|
+| Plaintext cloud token | fake `AKIA…`, GitHub/Slack token, private key | error |
+| Password literal | `db_password = …` | warning |
+| Weak hash | MD5, NTLM, SHA1, RIPEMD160, MySQL323, CRC32 | warning |
+| Strong hash candidate | SHA256/SHA3 candidate (for inventory) | note |
+| Reused hash | same hash in multiple locations | warning |
+| Reused password | same plaintext cracked for multiple hashes | error |
+
+```bash
+# Scan a repository
+python credential_scanner.py --path . --format text
+
+# SARIF for GitHub Code Scanning
+python credential_scanner.py --path . --format sarif --out credential-scan.sarif
+
+# Scan a CI log
+python credential_scanner.py --file ci.log --format json
+
+# Scan Kubernetes Secrets and ConfigMaps
+python credential_scanner.py --k8s --namespace prod --format json
+
+# Detect reused passwords (slower; capped at 20 hashes by default)
+python credential_scanner.py --path . --crack --wordlist wordlist.txt
+```
+
+Plaintext secret values are **redacted** in findings. The scanner ignores hashes
+shorter than 32 characters by default to avoid UUID/CRC32 false positives; use
+`--min-hash-length 8` when you explicitly want CRC32/MySQL323 coverage.
+
+### GitHub Action
+
+```yaml
+permissions:
+  contents: read
+  security-events: write
+
+steps:
+  - uses: actions/checkout@v4
+  - uses: GhostSN221/smart-hash-tool@main
+    with:
+      path: .
+      fail-on: error
+  - uses: github/codeql-action/upload-sarif@v3
+    with:
+      sarif_file: credential-scan.sarif
+```
+
+The action writes SARIF, uploads nothing by itself, and fails the step according
+to `fail-on`. The repository's own `Credential Hygiene` workflow runs this action
+on every push and pull request.
 
 ---
 
@@ -104,17 +168,21 @@ The compose stack mounts `wordlist.txt`, sets `WORDLIST_DIR=/app`, and has a hea
 
 ```mermaid
 flowchart LR
-    CLI[CLI] --> Core[Detection · Rules · Crack · Generate]
-    API[FastAPI] --> Core
+    Repo[Repository / CI log] --> Scan[Credential scanner]
+    K8s[K8s Secrets / ConfigMaps] --> Scan
+    Scan --> Det[Secret + hash detectors]
+    Det --> Core[Hash engine]
     Core --> HIBP[HIBP k-anonymity]
     Core --> Pool[ProcessPoolExecutor]
-    Core --> Out[JSON / text]
+    Scan --> SARIF[SARIF / JSON / text]
+    CLI[CLI] --> Core
+    API[FastAPI] --> Core
 ```
 
 - `smart_hash_cracker.py` — dependency-free core + CLI.
 - `api.py` — FastAPI wrapper with input validation, optional API key and wordlist sandbox.
 - `wordlist.txt` — 7,776-word starter list.
-- `tests/` — 82 pytest tests.
+- `tests/` — 105 pytest tests.
 - `bench/benchmark.py` — reproducible local benchmarks.
 - `docs/postmortem-hash-coverage.md` — the incident behind the current test suite.
 
@@ -178,18 +246,27 @@ source .venv/bin/activate
 pip install -r requirements-dev.txt
 
 pytest -q
-pytest -q --cov=smart_hash_cracker --cov=api --cov-report=term-missing
-ruff check smart_hash_cracker.py api.py tests bench
+pytest -q \
+  --cov=smart_hash_cracker \
+  --cov=api \
+  --cov=credential_scanner \
+  --cov-report=term-missing
+ruff check smart_hash_cracker.py api.py credential_scanner.py tests bench
 ```
 
-Current state: **82 tests**, **87% coverage** across the core library and API.
+Current state: **105 tests**, **87% coverage** across the core library, API and
+scanner.
 
 CI (`.github/workflows/ci.yml`) runs:
 
 1. tests and coverage on Python 3.11 and 3.12;
 2. `ruff` and syntax checks;
-3. Docker build + CLI smoke + API smoke;
-4. `docker compose` smoke test.
+3. Docker build + CLI smoke + scanner smoke + API smoke;
+4. `docker compose` smoke test;
+5. a self-scan of the repository for credential hygiene.
+
+A separate `Credential Hygiene` workflow (`.github/workflows/self-scan.yml`) runs
+the GitHub Action, writes SARIF and uploads it to Code Scanning.
 
 ---
 
@@ -218,19 +295,35 @@ Detection is length-based: a 32-character hex string is reported as **MD5 or NTL
 
 ```text
 smart-hash-tool/
-├── smart_hash_cracker.py      # core library + CLI
+├── smart_hash_cracker.py      # hash engine + CLI
+├── credential_scanner.py      # repository / CI / Kubernetes scanner
 ├── api.py                     # FastAPI service
+├── action.yml                 # composite GitHub Action
+├── .credential-scan.json      # project self-scan config
 ├── wordlist.txt               # 7,776-word starter list
-├── tests/                     # 82 pytest tests
+├── tests/                     # 105 pytest tests
 ├── bench/benchmark.py         # local benchmarks
 ├── docs/
 │   ├── benchmarks.md
+│   ├── cncf.md
 │   └── postmortem-hash-coverage.md
-├── .github/workflows/ci.yml
+├── .github/
+│   ├── workflows/ci.yml
+│   ├── workflows/self-scan.yml
+│   └── ISSUE_TEMPLATE/
+├── LICENSE
+├── MAINTAINERS.md
+├── GOVERNANCE.md
+├── SECURITY.md
+├── CONTRIBUTING.md
+├── CODE_OF_CONDUCT.md
+├── ROADMAP.md
+├── ADOPTERS.md
 ├── Dockerfile
 ├── docker-compose.yml
 ├── requirements.txt
 ├── requirements-dev.txt
+├── requirements-scanner.txt
 ├── pyproject.toml
 └── Makefile
 ```
@@ -243,7 +336,32 @@ smart-hash-tool/
 - The rule engine is a compact 35-variant set, not a full hashcat ruleset.
 - HIBP lookup only applies to 40-character SHA1 inputs.
 - Detection is heuristic: 32/40/64/128-character hex strings are ambiguous by design.
-- Roadmap: hashcat rule import, Prometheus metrics, bcrypt/argon2 adapters, and a Kubernetes Job manifest validated in CI.
+- The scanner uses regex and hash-length heuristics, not entropy analysis; expect
+  some false positives and tune `.credential-scan.json`.
+- Kubernetes scanning requires a kubeconfig or an in-cluster service account.
+- Reuse detection with `--crack` is CPU-bound and capped at 20 hashes by default.
+- Roadmap: hashcat rule import, Prometheus metrics, bcrypt/argon2 adapters, Helm
+  chart, and policy-as-code integration. See [ROADMAP.md](ROADMAP.md).
+
+---
+
+## CNCF readiness
+
+The project is being prepared for a future **CNCF Sandbox** application, but it
+is **not applying yet**. The current state:
+
+| Requirement | Status |
+|---|---|
+| Apache 2.0 license | ✅ [LICENSE](LICENSE) |
+| MAINTAINERS.md with organization | ✅ [MAINTAINERS.md](MAINTAINERS.md) |
+| Governance / code of conduct / security policy | ✅ |
+| Reusable cloud-native project | ✅ scanner + SARIF + GitHub Action |
+| Tests and CI | ✅ 105 tests, 87% coverage |
+| Real adopters | ❌ template only |
+| Maintainers from multiple organizations | ❌ one maintainer |
+| Signed releases / SBOM | ❌ roadmap |
+
+The full checklist and gaps are in [docs/cncf.md](docs/cncf.md).
 
 ---
 

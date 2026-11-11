@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Security report
+    url: https://github.com/GhostSN221/smart-hash-tool/security/advisories/new
+    about: Report vulnerabilities or leaked credentials privately.
+  - name: Contributing guide
+    url: https://github.com/GhostSN221/smart-hash-tool/blob/main/CONTRIBUTING.md
+    about: Setup, tests and pull request process.

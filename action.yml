@@ -1,0 +1,50 @@
+name: "Credential Hygiene Scan"
+description: "Scan a repository for plaintext credentials, weak hashes and reused passwords"
+author: "GhostSN221"
+branding:
+  icon: "shield"
+  color: "purple"
+
+inputs:
+  path:
+    description: "Path to scan, relative to the workspace"
+    required: false
+    default: "."
+  config:
+    description: "Path to the JSON config file"
+    required: false
+    default: ".credential-scan.json"
+  fail-on:
+    description: "Fail on: none, warning or error"
+    required: false
+    default: "error"
+  output:
+    description: "SARIF output path"
+    required: false
+    default: "credential-scan.sarif"
+
+runs:
+  using: "composite"
+  steps:
+    - name: Install scanner dependencies
+      shell: bash
+      run: pip install -r "$GITHUB_ACTION_PATH/requirements-scanner.txt"
+
+    - name: Run credential scanner
+      shell: bash
+      run: |
+        TARGET="${{ inputs.path }}"
+        case "$TARGET" in /*) ;; *) TARGET="$GITHUB_WORKSPACE/$TARGET" ;; esac
+
+        CONFIG="${{ inputs.config }}"
+        case "$CONFIG" in /*) ;; *) CONFIG="$GITHUB_WORKSPACE/$CONFIG" ;; esac
+
+        OUTPUT="${{ inputs.output }}"
+        case "$OUTPUT" in /*) ;; *) OUTPUT="$GITHUB_WORKSPACE/$OUTPUT" ;; esac
+
+        ARGS=(--path "$TARGET" --format sarif --out "$OUTPUT" --fail-on "${{ inputs.fail-on }}")
+        if [ -f "$CONFIG" ]; then
+          ARGS+=(--config "$CONFIG")
+        fi
+
+        python "$GITHUB_ACTION_PATH/credential_scanner.py" "${ARGS[@]}"

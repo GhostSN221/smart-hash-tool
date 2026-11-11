@@ -10,7 +10,7 @@ WORKDIR /app
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-COPY smart_hash_cracker.py api.py wordlist.txt ./
+COPY smart_hash_cracker.py api.py credential_scanner.py wordlist.txt ./
 
 RUN chown -R appuser:appuser /app
 

@@ -74,7 +74,7 @@ Three gaps compounded each other:
 | Advertised hash types | 12 | 12 |
 | Computable hash types | 9 | **12** |
 | `generate_hashes` keys | 9 | **12** |
-| Tests | 0 | **82** |
+| Tests | 0 | **105** |
 | Coverage (`smart_hash_cracker` + `api`) | 0% | **87%** |
 
 ---
