@@ -7,4 +7,16 @@ services:
       - "8000:8000"
     volumes:
       - ./wordlist.txt:/app/wordlist.txt:ro
+    environment:
+      WORDLIST_DIR: /app
+      API_KEY: ${API_KEY:-}
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health')"
+      interval: 10s
+      timeout: 3s
+      retries: 5
     restart: unless-stopped
