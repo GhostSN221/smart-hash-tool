@@ -1,0 +1,90 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.11", "3.12"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: pip
+          cache-dependency-path: requirements*.txt
+      - name: Install dependencies
+        run: pip install -r requirements-dev.txt
+      - name: Syntax check
+        run: python -m compileall -q smart_hash_cracker.py api.py tests bench
+      - name: Lint
+        run: ruff check smart_hash_cracker.py api.py tests bench
+      - name: Tests and coverage
+        run: |
+          pytest -q \
+            --cov=smart_hash_cracker \
+            --cov=api \
+            --cov-report=term-missing
+
+  docker:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build image
+        run: docker build -t smart-hash-tool:ci .
+      - name: CLI smoke test
+        run: |
+          docker run --rm smart-hash-tool:ci --generate password --json \
+            | python3 -c 'import json,sys; d=json.load(sys.stdin); assert d["hashes"]["NTLM"] == "8846f7eaee8fb117ad06bdd830b7586c"'
+      - name: API smoke test
+        run: |
+          docker run -d --name smart-hash-api -p 8001:8000 \
+            --entrypoint uvicorn smart-hash-tool:ci \
+            api:app --host 0.0.0.0 --port 8000
+          for i in $(seq 1 30); do
+            if curl -fsS http://localhost:8001/health; then break; fi
+            sleep 2
+          done
+          curl -fsS http://localhost:8001/health
+          curl -fsS -X POST http://localhost:8001/generate \
+            -H 'Content-Type: application/json' \
+            -d '{"plaintext":"password"}' \
+            | python3 -c 'import json,sys; d=json.load(sys.stdin); assert len(d["hashes"]) == 12'
+          docker rm -f smart-hash-api
+      - name: Stop API container
+        if: always()
+        run: docker rm -f smart-hash-api || true
+
+  compose-smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Start compose stack
+        run: docker compose up -d --build
+      - name: Wait and check API
+        run: |
+          for i in $(seq 1 30); do
+            if curl -fsS http://localhost:8000/health; then break; fi
+            sleep 2
+          done
+          curl -fsS http://localhost:8000/health
+          curl -fsS -X POST http://localhost:8000/generate \
+            -H 'Content-Type: application/json' \
+            -d '{"plaintext":"password"}' \
+            | python3 -c 'import json,sys; d=json.load(sys.stdin); assert d["hashes"]["CRC32"] == "35c246d5"'
+      - name: Stop compose stack
+        if: always()
+        run: docker compose down -v
