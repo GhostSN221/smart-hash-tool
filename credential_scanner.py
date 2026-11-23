@@ -246,29 +246,48 @@ def scan_path(
     return findings
 
 
+def _k8s_api(kubeconfig: str | None = None, context: str | None = None):
+    try:
+        from kubernetes import client, config
+    except ImportError as exc:
+        raise RuntimeError(
+            "Kubernetes support requires: pip install kubernetes"
+        ) from exc
+
+    if kubeconfig or context:
+        # Explicit kubeconfig wins over in-cluster credentials.
+        config.load_kube_config(config_file=kubeconfig, context=context)
+    else:
+        try:
+            config.load_incluster_config()
+        except Exception:
+            config.load_kube_config()
+    return client.CoreV1Api()
+
+
 def scan_k8s(
     namespace: str = "default",
     api=None,
     min_hash_length: int = 32,
     ignore_hashes: set[str] | None = None,
+    kubeconfig: str | None = None,
+    context: str | None = None,
+    all_namespaces: bool = False,
 ) -> list[Finding]:
     if api is None:
-        try:
-            from kubernetes import client, config
-        except ImportError as exc:
-            raise RuntimeError(
-                "Kubernetes support requires: pip install kubernetes"
-            ) from exc
-
-        try:
-            config.load_incluster_config()
-        except Exception:
-            config.load_kube_config()
-        api = client.CoreV1Api()
+        api = _k8s_api(kubeconfig=kubeconfig, context=context)
 
     findings: list[Finding] = []
 
-    for secret in api.list_namespaced_secret(namespace).items:
+    if all_namespaces:
+        secrets = api.list_secret_for_all_namespaces().items
+        config_maps = api.list_config_map_for_all_namespaces().items
+    else:
+        secrets = api.list_namespaced_secret(namespace).items
+        config_maps = api.list_namespaced_config_map(namespace).items
+
+    for secret in secrets:
+        secret_namespace = getattr(secret.metadata, "namespace", None) or namespace
         name = secret.metadata.name
         for key, encoded in (secret.data or {}).items():
             try:
@@ -277,17 +296,18 @@ def scan_k8s(
                 value = str(encoded)
             findings.extend(scan_text(
                 value,
-                f"k8s/secret/{namespace}/{name}/{key}",
+                f"k8s/secret/{secret_namespace}/{name}/{key}",
                 min_hash_length,
                 ignore_hashes=ignore_hashes,
             ))
 
-    for config_map in api.list_namespaced_config_map(namespace).items:
+    for config_map in config_maps:
+        config_namespace = getattr(config_map.metadata, "namespace", None) or namespace
         name = config_map.metadata.name
         for key, value in (config_map.data or {}).items():
             findings.extend(scan_text(
                 value,
-                f"k8s/configmap/{namespace}/{name}/{key}",
+                f"k8s/configmap/{config_namespace}/{name}/{key}",
                 min_hash_length,
                 ignore_hashes=ignore_hashes,
             ))
@@ -455,6 +475,13 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--file", help="Scan a single file (e.g. a CI log)")
     parser.add_argument("--k8s", action="store_true", help="Scan Kubernetes Secrets and ConfigMaps")
     parser.add_argument("--namespace", default="default", help="Kubernetes namespace")
+    parser.add_argument("--kubeconfig", help="Kubeconfig path (default: in-cluster or ~/.kube/config)")
+    parser.add_argument("--context", help="Kubeconfig context to use")
+    parser.add_argument(
+        "--all-namespaces",
+        action="store_true",
+        help="Scan all namespaces (requires cluster-wide list permissions)",
+    )
     parser.add_argument("--format", choices=["text", "json", "sarif"], default="text")
     parser.add_argument("--out", help="Write the report to a file")
     parser.add_argument("--config", help="JSON config file")
@@ -488,32 +515,39 @@ def main(argv: list[str] | None = None) -> int:
         print("--k8s and --file cannot be used together", file=sys.stderr)
         return 2
 
-    try:
-        if args.k8s:
+    if args.k8s:
+        try:
             findings = scan_k8s(
                 args.namespace,
                 min_hash_length=min_hash_length,
                 ignore_hashes=ignore_hashes,
+                kubeconfig=args.kubeconfig,
+                context=args.context,
+                all_namespaces=args.all_namespaces,
             )
-        elif args.file:
-            if not Path(args.file).is_file():
-                print(f"Path not found: {args.file}", file=sys.stderr)
-                return 2
-            findings = scan_file(
-                args.file,
-                min_hash_length=min_hash_length,
-                ignore_hashes=ignore_hashes,
-            )
-        else:
+        except Exception as exc:
+            print(f"Kubernetes scan failed: {exc}", file=sys.stderr)
+            return 2
+    elif args.file:
+        if not Path(args.file).is_file():
+            print(f"Path not found: {args.file}", file=sys.stderr)
+            return 2
+        findings = scan_file(
+            args.file,
+            min_hash_length=min_hash_length,
+            ignore_hashes=ignore_hashes,
+        )
+    else:
+        try:
             findings = scan_path(
                 args.path,
                 excludes=excludes,
                 min_hash_length=min_hash_length,
                 ignore_hashes=ignore_hashes,
             )
-    except (FileNotFoundError, RuntimeError) as exc:
-        print(str(exc), file=sys.stderr)
-        return 2
+        except (FileNotFoundError, RuntimeError) as exc:
+            print(str(exc), file=sys.stderr)
+            return 2
 
     if args.crack:
         if not Path(wordlist).is_file():

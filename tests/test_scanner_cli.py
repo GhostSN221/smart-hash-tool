@@ -3,6 +3,8 @@ import subprocess
 import sys
 from pathlib import Path
 
+import credential_scanner
+
 ROOT = Path(__file__).resolve().parents[1]
 SCANNER = ROOT / "credential_scanner.py"
 FAKE_AWS = "AKIAABCDEFGHIJKLMNOP"
@@ -110,3 +112,30 @@ def test_clean_file_returns_no_findings(tmp_path):
     result = run_scanner("--file", str(path), "--format", "text", "--fail-on", "none")
     assert result.returncode == 0
     assert "No credential hygiene findings" in result.stdout
+
+
+def test_cli_passes_k8s_options(monkeypatch, capsys):
+    captured = {}
+
+    def fake_scan_k8s(namespace, **kwargs):
+        captured["namespace"] = namespace
+        captured.update(kwargs)
+        return []
+
+    monkeypatch.setattr(credential_scanner, "scan_k8s", fake_scan_k8s)
+    rc = credential_scanner.main([
+        "--k8s",
+        "--namespace", "prod",
+        "--kubeconfig", "/tmp/kubeconfig",
+        "--context", "ctx",
+        "--all-namespaces",
+        "--format", "json",
+        "--fail-on", "none",
+    ])
+    assert rc == 0
+    assert captured["namespace"] == "prod"
+    assert captured["kubeconfig"] == "/tmp/kubeconfig"
+    assert captured["context"] == "ctx"
+    assert captured["all_namespaces"] is True
+    capsys.readouterr()
+

@@ -38,7 +38,7 @@ Smart Hash Tool removes that setup:
 | Batch mode | One hash per line, JSON output |
 | REST API | FastAPI with `/docs`, optional API key, wordlist sandbox |
 | Repository scan | Plaintext credentials and weak hashes in files and CI logs |
-| Kubernetes scan | Secrets and ConfigMaps in a namespace, with redaction |
+| Kubernetes scan | Secrets and ConfigMaps in one or all namespaces, with redaction |
 | Reuse detection | Duplicate hashes and, with `--crack`, reused plaintext passwords |
 | CI integration | SARIF output, GitHub Action, Code Scanning upload |
 | CI | Tests, lint, Docker build, API/compose smoke and self-scan |
@@ -71,6 +71,14 @@ python credential_scanner.py --file ci.log --format json
 
 # Scan Kubernetes Secrets and ConfigMaps
 python credential_scanner.py --k8s --namespace prod --format json
+
+# Explicit kubeconfig and context
+python credential_scanner.py --k8s --namespace prod \
+  --kubeconfig ~/.kube/config --context my-cluster --format json
+
+# All namespaces (requires cluster-wide list permissions)
+python credential_scanner.py --k8s --all-namespaces \
+  --kubeconfig ~/.kube/config --format json
 
 # Detect reused passwords (slower; capped at 20 hashes by default)
 python credential_scanner.py --path . --crack --wordlist wordlist.txt
@@ -182,7 +190,7 @@ flowchart LR
 - `smart_hash_cracker.py` — dependency-free core + CLI.
 - `api.py` — FastAPI wrapper with input validation, optional API key and wordlist sandbox.
 - `wordlist.txt` — 7,776-word starter list.
-- `tests/` — 105 pytest tests.
+- `tests/` — 109 pytest tests.
 - `bench/benchmark.py` — reproducible local benchmarks.
 - `docs/postmortem-hash-coverage.md` — the incident behind the current test suite.
 
@@ -254,7 +262,7 @@ pytest -q \
 ruff check smart_hash_cracker.py api.py credential_scanner.py tests bench
 ```
 
-Current state: **105 tests**, **87% coverage** across the core library, API and
+Current state: **109 tests**, **88% coverage** across the core library, API and
 scanner.
 
 CI (`.github/workflows/ci.yml`) runs:
@@ -301,7 +309,7 @@ smart-hash-tool/
 ├── action.yml                 # composite GitHub Action
 ├── .credential-scan.json      # project self-scan config
 ├── wordlist.txt               # 7,776-word starter list
-├── tests/                     # 105 pytest tests
+├── tests/                     # 109 pytest tests
 ├── bench/benchmark.py         # local benchmarks
 ├── docs/
 │   ├── benchmarks.md
@@ -338,7 +346,9 @@ smart-hash-tool/
 - Detection is heuristic: 32/40/64/128-character hex strings are ambiguous by design.
 - The scanner uses regex and hash-length heuristics, not entropy analysis; expect
   some false positives and tune `.credential-scan.json`.
-- Kubernetes scanning requires a kubeconfig or an in-cluster service account.
+- Kubernetes scanning requires a kubeconfig (`--kubeconfig`/`--context`) or an
+  in-cluster service account. `--all-namespaces` needs cluster-wide `list`
+  permissions on Secrets and ConfigMaps.
 - Reuse detection with `--crack` is CPU-bound and capped at 20 hashes by default.
 - Roadmap: hashcat rule import, Prometheus metrics, bcrypt/argon2 adapters, Helm
   chart, and policy-as-code integration. See [ROADMAP.md](ROADMAP.md).
@@ -356,7 +366,7 @@ is **not applying yet**. The current state:
 | MAINTAINERS.md with organization | ✅ [MAINTAINERS.md](MAINTAINERS.md) |
 | Governance / code of conduct / security policy | ✅ |
 | Reusable cloud-native project | ✅ scanner + SARIF + GitHub Action |
-| Tests and CI | ✅ 105 tests, 87% coverage |
+| Tests and CI | ✅ 109 tests, 88% coverage |
 | Real adopters | ❌ template only |
 | Maintainers from multiple organizations | ❌ one maintainer |
 | Signed releases / SBOM | ❌ roadmap |

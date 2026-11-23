@@ -105,6 +105,88 @@ def test_scan_path_applies_excludes(tmp_path):
     assert all(finding.path.startswith("src/") for finding in findings)
 
 
+def test_scan_k8s_all_namespaces():
+    secret = SimpleNamespace(
+        metadata=SimpleNamespace(name="db", namespace="prod"),
+        data={"password": base64.b64encode(FAKE_AWS.encode()).decode()},
+    )
+    config_map = SimpleNamespace(
+        metadata=SimpleNamespace(name="app", namespace="dev"),
+        data={"config": "db_password = supersecret\n"},
+    )
+
+    class FakeApi:
+        def list_secret_for_all_namespaces(self):
+            return SimpleNamespace(items=[secret])
+
+        def list_config_map_for_all_namespaces(self):
+            return SimpleNamespace(items=[config_map])
+
+        def list_namespaced_secret(self, namespace):
+            raise AssertionError("namespaced secret API must not be called")
+
+        def list_namespaced_config_map(self, namespace):
+            raise AssertionError("namespaced configmap API must not be called")
+
+    findings = scan_k8s(all_namespaces=True, api=FakeApi())
+    assert any(finding.path == "k8s/secret/prod/db/password" for finding in findings)
+    assert any(finding.path == "k8s/configmap/dev/app/config" for finding in findings)
+
+
+def test_scan_k8s_explicit_kubeconfig_and_context(monkeypatch):
+    import kubernetes
+
+    calls = {}
+
+    def fake_load_kube_config(config_file=None, context=None, **kwargs):
+        calls["config_file"] = config_file
+        calls["context"] = context
+
+    def fail_incluster():
+        raise AssertionError("in-cluster config must not be used")
+
+    class FakeCore:
+        def list_namespaced_secret(self, namespace):
+            return SimpleNamespace(items=[])
+
+        def list_namespaced_config_map(self, namespace):
+            return SimpleNamespace(items=[])
+
+    monkeypatch.setattr(kubernetes.config, "load_kube_config", fake_load_kube_config)
+    monkeypatch.setattr(kubernetes.config, "load_incluster_config", fail_incluster)
+    monkeypatch.setattr(kubernetes.client, "CoreV1Api", lambda: FakeCore())
+
+    assert scan_k8s(kubeconfig="/tmp/kubeconfig", context="ctx") == []
+    assert calls == {"config_file": "/tmp/kubeconfig", "context": "ctx"}
+
+
+def test_scan_k8s_falls_back_to_kubeconfig(monkeypatch):
+    import kubernetes
+
+    calls = {"incluster": False, "kubeconfig": False}
+
+    def fail_incluster():
+        calls["incluster"] = True
+        raise RuntimeError("not in a cluster")
+
+    def fake_load_kube_config(config_file=None, context=None, **kwargs):
+        calls["kubeconfig"] = True
+
+    class FakeCore:
+        def list_namespaced_secret(self, namespace):
+            return SimpleNamespace(items=[])
+
+        def list_namespaced_config_map(self, namespace):
+            return SimpleNamespace(items=[])
+
+    monkeypatch.setattr(kubernetes.config, "load_kube_config", fake_load_kube_config)
+    monkeypatch.setattr(kubernetes.config, "load_incluster_config", fail_incluster)
+    monkeypatch.setattr(kubernetes.client, "CoreV1Api", lambda: FakeCore())
+
+    assert scan_k8s() == []
+    assert calls == {"incluster": True, "kubeconfig": True}
+
+
 def test_scan_k8s_secrets_and_configmaps():
     secret = SimpleNamespace(
         metadata=SimpleNamespace(name="db"),
