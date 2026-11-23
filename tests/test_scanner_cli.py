@@ -114,6 +114,18 @@ def test_clean_file_returns_no_findings(tmp_path):
     assert "No credential hygiene findings" in result.stdout
 
 
+def test_scan_detects_reused_hash_without_crack(tmp_path):
+    reuse = tmp_path / "reuse"
+    reuse.mkdir()
+    (reuse / "a.txt").write_text("md5=5f4dcc3b5aa765d61d8327deb882cf99\n")
+    (reuse / "b.txt").write_text("md5=5f4dcc3b5aa765d61d8327deb882cf99\n")
+
+    result = run_scanner("--path", str(reuse), "--format", "json", "--fail-on", "none")
+    assert result.returncode == 0
+    payload = json.loads(result.stdout)
+    assert any(finding["rule"] == "reused-hash" for finding in payload["findings"])
+
+
 def test_cli_passes_k8s_options(monkeypatch, capsys):
     captured = {}
 

@@ -549,11 +549,14 @@ def main(argv: list[str] | None = None) -> int:
             print(str(exc), file=sys.stderr)
             return 2
 
-    if args.crack:
-        if not Path(wordlist).is_file():
-            print(f"Wordlist not found: {wordlist}", file=sys.stderr)
-            return 2
-        findings += detect_reuse(findings, wordlist=wordlist, max_hashes=args.max_hashes)
+    if args.crack and not Path(wordlist).is_file():
+        print(f"Wordlist not found: {wordlist}", file=sys.stderr)
+        return 2
+    findings += detect_reuse(
+        findings,
+        wordlist=wordlist if args.crack else None,
+        max_hashes=args.max_hashes,
+    )
 
     findings = dedupe(findings)
 
