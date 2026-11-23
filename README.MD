@@ -190,7 +190,7 @@ flowchart LR
 - `smart_hash_cracker.py` — dependency-free core + CLI.
 - `api.py` — FastAPI wrapper with input validation, optional API key and wordlist sandbox.
 - `wordlist.txt` — 7,776-word starter list.
-- `tests/` — 109 pytest tests.
+- `tests/` — 110 pytest tests.
 - `bench/benchmark.py` — reproducible local benchmarks.
 - `docs/postmortem-hash-coverage.md` — the incident behind the current test suite.
 
@@ -262,7 +262,9 @@ pytest -q \
 ruff check smart_hash_cracker.py api.py credential_scanner.py tests bench
 ```
 
-Current state: **109 tests**, **88% coverage** across the core library, API and
+Step-by-step testing guide: **[docs/testing.md](docs/testing.md)**.
+
+Current state: **110 tests**, **88% coverage** across the core library, API and
 scanner.
 
 CI (`.github/workflows/ci.yml`) runs:
@@ -309,12 +311,13 @@ smart-hash-tool/
 ├── action.yml                 # composite GitHub Action
 ├── .credential-scan.json      # project self-scan config
 ├── wordlist.txt               # 7,776-word starter list
-├── tests/                     # 109 pytest tests
+├── tests/                     # 110 pytest tests
 ├── bench/benchmark.py         # local benchmarks
 ├── docs/
 │   ├── benchmarks.md
 │   ├── cncf.md
-│   └── postmortem-hash-coverage.md
+│   ├── postmortem-hash-coverage.md
+│   └── testing.md
 ├── .github/
 │   ├── workflows/ci.yml
 │   ├── workflows/self-scan.yml
@@ -366,7 +369,7 @@ is **not applying yet**. The current state:
 | MAINTAINERS.md with organization | ✅ [MAINTAINERS.md](MAINTAINERS.md) |
 | Governance / code of conduct / security policy | ✅ |
 | Reusable cloud-native project | ✅ scanner + SARIF + GitHub Action |
-| Tests and CI | ✅ 109 tests, 88% coverage |
+| Tests and CI | ✅ 110 tests, 88% coverage |
 | Real adopters | ❌ template only |
 | Maintainers from multiple organizations | ❌ one maintainer |
 | Signed releases / SBOM | ❌ roadmap |
